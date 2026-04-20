@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+/node_modules
+/dist
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
