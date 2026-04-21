@@ -9,9 +9,12 @@ const Book = require('./Model/Book');
 const app = express();
 
 // Middleware: Body parser with limit for large data
+// https://aditya-test-mock.onrender.com/
+// http://localhost:3000
+
 app.use(cors());
 const corsOptions = {
-  origin: 'http://localhost:3000',
+  origin: 'https://aditya-test-mock.onrender.com',
   optionsSuccessStatus: 200 
 };
 
