@@ -12,9 +12,23 @@ const app = express();
 // https://aditya-test-mock.onrender.com/
 // http://localhost:3000
 
-app.use(cors());
+const allowedOrigins = [
+  'https://aditya-test-mock.onrender.com',
+  'https://hoppscotch.io',                 
+  'null'                             
+];
+
 const corsOptions = {
-  origin: 'https://aditya-test-mock.onrender.com',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
   optionsSuccessStatus: 200 
 };
 
