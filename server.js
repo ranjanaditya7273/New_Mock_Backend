@@ -14,7 +14,8 @@ const app = express();
 
 const allowedOrigins = [
   'https://aditya-test-mock.onrender.com',
-  'https://hoppscotch.io',                 
+  'https://hoppscotch.io',
+//   'http://localhost:3000',        
   'null'                             
 ];
 
@@ -66,6 +67,8 @@ const parseQuizContent = (text) => {
             if (trimmedLine.startsWith('B)')) options.push(trimmedLine.replace('B)', '').trim());
             if (trimmedLine.startsWith('C)')) options.push(trimmedLine.replace('C)', '').trim());
             if (trimmedLine.startsWith('D)')) options.push(trimmedLine.replace('D)', '').trim());
+            // optional For option E
+            if (trimmedLine.startsWith('E)')) options.push(trimmedLine.replace('E)', '').trim());
             if (trimmedLine.startsWith('ANS:')) ans = parseInt(trimmedLine.replace('ANS:', '').trim());
             if (trimmedLine.startsWith('Explanation:')) explanation = block.split('Explanation:')[1]?.trim();
         });
