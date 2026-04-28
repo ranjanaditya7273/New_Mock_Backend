@@ -70,7 +70,7 @@ const parseQuizContent = (text) => {
             // optional For option E
             if (trimmedLine.startsWith('E)')) options.push(trimmedLine.replace('E)', '').trim());
             if (trimmedLine.startsWith('ANS:')) ans = parseInt(trimmedLine.replace('ANS:', '').trim());
-            if (trimmedLine.startsWith('Explanation:')) explanation = block.split('Explanation:')[1]?.trim();
+            if (trimmedLine.startsWith('Explanation:') || trimmedLine.startsWith('explanation:')) explanation = block.split('Explanation:')[1]?.trim();
         });
 
         questions.push({ question: questionText, options, ans, explanation });
