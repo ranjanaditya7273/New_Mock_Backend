@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // पुराने Book मॉडल की जगह नया Subject मॉडल इम्पोर्ट करें
 // सुनिश्चित करें कि आपका मॉडल फ़ाइल का नाम और पाथ सही है
-const Subject = require('./Model/Subject'); 
+const Subject = require('./Model/Book'); 
 
 const app = express();
 
@@ -14,7 +14,7 @@ const app = express();
 const allowedOrigins = [
   'https://aditya-test-mock.onrender.com',
   'https://hoppscotch.io',
-  'http://localhost:3000', // लोकल टेस्टिंग के लिए खुला रखा है
+//   'http://localhost:3000', // लोकल टेस्टिंग के लिए खुला रखा है 
   'null'
 ];
 
