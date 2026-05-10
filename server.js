@@ -4,19 +4,18 @@ const cors = require('cors');
 const multer = require('multer');
 require('dotenv').config();
 
-const Book = require('./Model/Book');
+// पुराने Book मॉडल की जगह नया Subject मॉडल इम्पोर्ट करें
+// सुनिश्चित करें कि आपका मॉडल फ़ाइल का नाम और पाथ सही है
+const Subject = require('./Model/Subject'); 
 
 const app = express();
 
-// Middleware: Body parser with limit for large data
-// https://aditya-test-mock.onrender.com/
-// http://localhost:3000
-
+// --- CORS Configuration ---
 const allowedOrigins = [
   'https://aditya-test-mock.onrender.com',
   'https://hoppscotch.io',
-//   'http://localhost:3000',        
-  'null'                             
+  'http://localhost:3000', // लोकल टेस्टिंग के लिए खुला रखा है
+  'null'
 ];
 
 const corsOptions = {
@@ -37,19 +36,19 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Multer setup using memoryStorage (No temporary files on disk)
+// --- Multer Configuration ---
 const upload = multer({ 
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
-// Database Connection
+// --- Database Connection ---
 const mongoURI = process.env.MONGO_URI;
 mongoose.connect(mongoURI)
-    .then(() => console.log("✅ MongoDB Connected!"))
+    .then(() => console.log("✅ MongoDB Connected (Subject-Wise Mode)"))
     .catch(err => console.error("❌ Connection Error:", err));
 
-// Helper: Parse text file content into structured JSON
+// --- Helper: Parse Quiz Content ---
 const parseQuizContent = (text) => {
     const questions = [];
     const rawBlocks = text.split(/Q:/).filter(Boolean);
@@ -67,10 +66,16 @@ const parseQuizContent = (text) => {
             if (trimmedLine.startsWith('B)')) options.push(trimmedLine.replace('B)', '').trim());
             if (trimmedLine.startsWith('C)')) options.push(trimmedLine.replace('C)', '').trim());
             if (trimmedLine.startsWith('D)')) options.push(trimmedLine.replace('D)', '').trim());
-            // optional For option E
             if (trimmedLine.startsWith('E)')) options.push(trimmedLine.replace('E)', '').trim());
-            if (trimmedLine.startsWith('ANS:')) ans = parseInt(trimmedLine.replace('ANS:', '').trim());
-            if (trimmedLine.startsWith('Explanation:') || trimmedLine.startsWith('explanation:')) explanation = block.split('Explanation:')[1]?.trim();
+            
+            if (trimmedLine.startsWith('ANS:')) {
+                ans = parseInt(trimmedLine.replace('ANS:', '').trim());
+            }
+            
+            if (trimmedLine.toLowerCase().includes('explanation:')) {
+                const parts = block.split(/explanation:/i);
+                if (parts[1]) explanation = parts[1].trim();
+            }
         });
 
         questions.push({ question: questionText, options, ans, explanation });
@@ -78,9 +83,11 @@ const parseQuizContent = (text) => {
     return questions;
 };
 
+// --- ROUTES ---
+
 /**
  * @route   POST /api/upload-quiz
- * @desc    Process file and update the 3-tier structure
+ * @desc    विषय के आधार पर डॉक्यूमेंट बनाना (16MB समस्या का समाधान)
  */
 app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
     try {
@@ -91,18 +98,14 @@ app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
         const rawText = req.file.buffer.toString('utf-8');
         const parsedQuestions = parseQuizContent(rawText);
 
-        // Find or create Book
-        let book = await Book.findOne({ bookName });
-        if (!book) book = new Book({ bookName, subjects: [] });
+        // अब हम पूरी बुक नहीं, सिर्फ 'Book Name' + 'Subject Name' का यूनिक डॉक्यूमेंट ढूंढेंगे
+        let subject = await Subject.findOne({ bookName, subjectName });
 
-        // Find or create Subject
-        let subject = book.subjects.find(s => s.subjectName === subjectName);
         if (!subject) {
-            book.subjects.push({ subjectName, topics: [] });
-            subject = book.subjects[book.subjects.length - 1];
+            subject = new Subject({ bookName, subjectName, topics: [] });
         }
 
-        // Add or replace Topic
+        // टॉपिक अपडेट या ऐड करें
         const topicIndex = subject.topics.findIndex(t => t.topicName === topicName);
         if (topicIndex > -1) {
             subject.topics[topicIndex].questions = parsedQuestions;
@@ -110,8 +113,11 @@ app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
             subject.topics.push({ topicName, questions: parsedQuestions });
         }
 
-        await book.save();
-        res.status(200).json({ success: true, message: "Quiz structure updated successfully!" });
+        await subject.save();
+        res.status(200).json({ 
+            success: true, 
+            message: `${subjectName} - ${topicName} सफलतापूर्वक अपडेट हो गया है!` 
+        });
 
     } catch (err) {
         console.error("Upload Error:", err);
@@ -120,27 +126,54 @@ app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
 });
 
 /**
+ * @route   GET /api/book/:bookName
+ * @desc    किताब के नाम से सारा डेटा रिट्रीव करना (Frontend के लिए आसान)
+ */
+app.get('/api/book/:bookName', async (req, res) => {
+    try {
+        const { bookName } = req.params;
+        
+        // उस बुक के सभी सब्जेक्ट्स डाक्यूमेंट्स को एक साथ लाएं
+        const subjectsData = await Subject.find({ bookName }).lean();
+
+        if (!subjectsData.length) {
+            return res.status(404).json({ message: "कोई डेटा नहीं मिला।" });
+        }
+
+        // डेटा को पुराने "Book" स्ट्रक्चर में बदलें ताकि फ्रंटेंड न टूटे
+        const response = {
+            bookName: bookName,
+            subjects: subjectsData.map(s => ({
+                subjectName: s.subjectName,
+                topics: s.topics
+            }))
+        };
+
+        res.status(200).json(response);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
  * @route   POST /api/admin-dump
- * @desc    Fetch all data with Manual Sort to bypass MongoDB limits
+ * @desc    Admin के लिए सारा डेटा (विषय-वार)
  */
 app.post('/api/admin-dump', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const adminEmail = process.env.ADMIN_EMAIL;
-        const adminPassword = process.env.ADMIN_PASSWORD;
-
-        if (email === adminEmail && password === adminPassword) {
+        if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
             
-            // Step 1: Fetch data without sort using .lean() for performance
-            const allData = await Book.find({}).lean();
+            // सभी सब्जेक्ट्स का डेटा लाएं
+            const allData = await Subject.find({}).lean();
 
-            // Step 2: Manual Server-side Sorting (Bypasses MongoDB 32MB Sort Limit)
-            allData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            // मैन्युअल सॉर्टिंग
+            allData.sort((a, b) => b.subjectName.localeCompare(a.subjectName));
 
             return res.status(200).json({
                 success: true,
-                message: "Authentication successful (Manual Sort Active)",
+                message: "Authentication successful",
                 count: allData.length,
                 data: allData
             });
@@ -154,7 +187,7 @@ app.post('/api/admin-dump', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send("3-Tier Quiz Backend is Running (Optimized Mode)");
+    res.send("Subject-Wise Quiz Backend is Running 🚀 (No 16MB Limit)");
 });
 
 const PORT = process.env.PORT || 8080;

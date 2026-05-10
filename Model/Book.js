@@ -1,25 +1,21 @@
 const mongoose = require('mongoose');
 
-const QuestionSchema = new mongoose.Schema({
-    question: String,
-    options: [String],
-    ans: Number,
-    explanation: String
-});
-
-const TopicSchema = new mongoose.Schema({
-    topicName: String,
-    questions: [QuestionSchema]
-});
-
+// 1. Subject Schema (इसमें उस विषय के टॉपिक्स और सवाल होंगे)
 const SubjectSchema = new mongoose.Schema({
-    subjectName: String,
-    topics: [TopicSchema]
+    bookName: { type: String, required: true, index: true }, // Parent Book का नाम
+    subjectName: { type: String, required: true },
+    topics: [{
+        topicName: String,
+        questions: [{
+            question: String,
+            options: [String],
+            ans: Number,
+            explanation: String
+        }]
+    }]
 });
 
-const BookSchema = new mongoose.Schema({
-    bookName: { type: String, required: true, unique: true },
-    subjects: [SubjectSchema]
-});
+// इंडेक्सिंग ताकि सर्च फ़ास्ट हो
+SubjectSchema.index({ bookName: 1, subjectName: 1 });
 
-module.exports = mongoose.model('Book', BookSchema);
+module.exports = mongoose.model('Subject', SubjectSchema);
