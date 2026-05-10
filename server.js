@@ -125,36 +125,6 @@ app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
     }
 });
 
-// /**
-//  * @route   GET /api/book/:bookName
-//  * @desc    किताब के नाम से सारा डेटा रिट्रीव करना (Frontend के लिए आसान)
-//  */
-// app.get('/api/book/:bookName', async (req, res) => {
-//     try {
-//         const { bookName } = req.params;
-        
-//         // उस बुक के सभी सब्जेक्ट्स डाक्यूमेंट्स को एक साथ लाएं
-//         const subjectsData = await Subject.find({ bookName }).lean();
-
-//         if (!subjectsData.length) {
-//             return res.status(404).json({ message: "कोई डेटा नहीं मिला।" });
-//         }
-
-//         // डेटा को पुराने "Book" स्ट्रक्चर में बदलें ताकि फ्रंटेंड न टूटे
-//         const response = {
-//             bookName: bookName,
-//             subjects: subjectsData.map(s => ({
-//                 subjectName: s.subjectName,
-//                 topics: s.topics
-//             }))
-//         };
-
-//         res.status(200).json(response);
-//     } catch (err) {
-//         res.status(500).json({ success: false, error: err.message });
-//     }
-// });
-
 /**
  * @route   POST /api/admin-dump
  * @desc    Fetch all data, group by bookName to maintain old structure, and sort
@@ -169,24 +139,29 @@ app.post('/api/admin-dump', async (req, res) => {
         if (email === adminEmail && password === adminPassword) {
             
             // 1. डेटाबेस से सभी 'Subject' डाक्यूमेंट्स लाएं
-            // यहाँ 'Subject' आपके नए मॉडल का नाम होना चाहिए
             const allSubjects = await Subject.find({}).lean();
 
-            // 2. Grouping Logic: अलग-अलग सब्जेक्ट्स को उनकी Book के अंदर डालें
+            // 2. Grouping Logic
             const groupedBooks = allSubjects.reduce((acc, current) => {
-                const { bookName, subjectName, topics } = current;
+                const { bookName, subjectName, topics, photo } = current;
 
-                // अगर यह बुक अभी तक लिस्ट में नहीं है, तो उसे जोड़ें
                 if (!acc[bookName]) {
                     acc[bookName] = {
-                        _id: current._id, // पुरानी संगतता के लिए एक ID
+                        _id: current._id,
                         bookName: bookName,
                         subjects: [],
+                        // यदि इस डॉक्यूमेंट में फोटो है तो उसे रखें, वरना खाली छोड़ें
+                        photo: photo || "", 
                         createdAt: current.createdAt || new Date()
                     };
                 }
 
-                // उस बुक के अंदर सब्जेक्ट और उसके टॉपिक्स डालें
+                // यदि पहले फोटो नहीं मिली थी और इस वाले सब्जेक्ट डॉक्यूमेंट में फोटो है, 
+                // तो उसे अपडेट कर दें
+                if (!acc[bookName].photo && photo) {
+                    acc[bookName].photo = photo;
+                }
+
                 acc[bookName].subjects.push({
                     subjectName: subjectName,
                     topics: topics
@@ -195,17 +170,16 @@ app.post('/api/admin-dump', async (req, res) => {
                 return acc;
             }, {});
 
-            // 3. Object को Array में बदलें ताकि फ्रंटेंड को लिस्ट मिले
             const finalData = Object.values(groupedBooks);
 
-            // 4. Manual Sort (जैसे पहले था)
+            // 4. Manual Sort
             finalData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             return res.status(200).json({
                 success: true,
-                message: "Authentication successful (Grouped Structure)",
+                message: "Authentication successful (Grouped Structure with Photo)",
                 count: finalData.length,
-                data: finalData // अब यहाँ एक बुक के अंदर सारे सब्जेक्ट्स होंगे
+                data: finalData 
             });
 
         } else {
