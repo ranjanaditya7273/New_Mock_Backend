@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // पुराने Book मॉडल की जगह नया Subject मॉडल इम्पोर्ट करें
 // सुनिश्चित करें कि आपका मॉडल फ़ाइल का नाम और पाथ सही है
-const Subject = require('./Model/Book'); 
+const Subject = require('./Model/Subject'); 
 
 const app = express();
 
