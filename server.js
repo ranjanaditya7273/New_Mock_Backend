@@ -127,7 +127,7 @@ app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
 
 /**
  * @route   POST /api/admin-dump
- * @desc    Fetch all data, group by bookName to maintain old structure, and sort
+ * @desc    Fetch all subjects and questions safely using lean() to optimize memory
  */
 app.post('/api/admin-dump', async (req, res) => {
     const { email, password } = req.body;
@@ -138,10 +138,11 @@ app.post('/api/admin-dump', async (req, res) => {
 
         if (email === adminEmail && password === adminPassword) {
             
-            // 1. डेटाबेस से सभी 'Subject' डाक्यूमेंट्स लाएं
+            // .lean() का उपयोग करने से Mongoose ऑब्जेक्ट्स का भारी ओवरहेड खत्म हो जाता है 
+            // और रैम (Memory) बहुत कम खर्च होती है, भले ही डेटा कितना भी बड़ा हो।
             const allSubjects = await Subject.find({}).lean();
 
-            // 2. Grouping Logic
+            // Grouping Logic
             const groupedBooks = allSubjects.reduce((acc, current) => {
                 const { bookName, subjectName, topics, photo } = current;
 
@@ -150,21 +151,18 @@ app.post('/api/admin-dump', async (req, res) => {
                         _id: current._id,
                         bookName: bookName,
                         subjects: [],
-                        // यदि इस डॉक्यूमेंट में फोटो है तो उसे रखें, वरना खाली छोड़ें
                         photo: photo || "", 
                         createdAt: current.createdAt || new Date()
                     };
                 }
 
-                // यदि पहले फोटो नहीं मिली थी और इस वाले सब्जेक्ट डॉक्यूमेंट में फोटो है, 
-                // तो उसे अपडेट कर दें
                 if (!acc[bookName].photo && photo) {
                     acc[bookName].photo = photo;
                 }
 
                 acc[bookName].subjects.push({
                     subjectName: subjectName,
-                    topics: topics
+                    topics: topics || [] // इसमें सारे सवाल सुरक्षित रूप से आएंगे
                 });
 
                 return acc;
@@ -172,12 +170,12 @@ app.post('/api/admin-dump', async (req, res) => {
 
             const finalData = Object.values(groupedBooks);
 
-            // 4. Manual Sort
+            // Manual Sort
             finalData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
             return res.status(200).json({
                 success: true,
-                message: "Authentication successful (Grouped Structure with Photo)",
+                message: "Authentication successful (All questions loaded)",
                 count: finalData.length,
                 data: finalData 
             });
