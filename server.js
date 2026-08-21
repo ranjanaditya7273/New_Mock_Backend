@@ -125,10 +125,9 @@ app.post('/api/upload-quiz', upload.single('quizFile'), async (req, res) => {
     }
 });
 
-
 /**
  * @route   POST /api/admin-dump
- * @desc    Fetch all subjects and questions safely using lean() with memory tracking
+ * @desc    Fetch all subjects and questions safely using lean() to optimize memory
  */
 app.post('/api/admin-dump', async (req, res) => {
     const { email, password } = req.body;
@@ -139,12 +138,14 @@ app.post('/api/admin-dump', async (req, res) => {
 
         if (email === adminEmail && password === adminPassword) {
             
+            // .lean() का उपयोग करने से Mongoose ऑब्जेक्ट्स का भारी ओवरहेड खत्म हो जाता है 
+            // और रैम (Memory) बहुत कम खर्च होती है, भले ही डेटा कितना भी बड़ा हो।
+
             // 1. डेटा फेच करने से ठीक पहले की रैम (Memory) देखें
             console.log("--- Memory BEFORE Fetch ---");
             const memBefore = process.memoryUsage();
             console.log(`Heap Used: ${Math.round(memBefore.heapUsed / 1024 / 1024)} MB`);
 
-            // डेटाबेस से सारा डेटा लाना
             const allSubjects = await Subject.find({}).lean();
 
             // 2. डेटा फेच करने के ठीक बाद की रैम देखें
@@ -173,7 +174,7 @@ app.post('/api/admin-dump', async (req, res) => {
 
                 acc[bookName].subjects.push({
                     subjectName: subjectName,
-                    topics: topics || [] 
+                    topics: topics || [] // इसमें सारे सवाल सुरक्षित रूप से आएंगे
                 });
 
                 return acc;
